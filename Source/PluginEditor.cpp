@@ -1,0 +1,311 @@
+#include "PluginEditor.h"
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared style helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+static void styleTextEditor (juce::TextEditor& ed)
+{
+    ed.setColour (juce::TextEditor::backgroundColourId, juce::Colour (0xff2a2a2a));
+    ed.setColour (juce::TextEditor::textColourId,       juce::Colours::lightgrey);
+    ed.setColour (juce::TextEditor::outlineColourId,    juce::Colour (0xff555555));
+    ed.setFont   (juce::Font (13.0f));
+    ed.setJustification (juce::Justification::centredRight);
+}
+
+static void styleLabel (juce::Label& lbl, bool isHeader = false)
+{
+    lbl.setColour (juce::Label::textColourId, isHeader
+                   ? juce::Colour (0xffaaaaaa)
+                   : juce::Colours::lightgrey);
+    lbl.setFont   (juce::Font (isHeader ? 11.0f : 12.0f,
+                               isHeader ? juce::Font::bold : juce::Font::plain));
+    lbl.setJustificationType (juce::Justification::centredRight);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ChannelRow
+// ─────────────────────────────────────────────────────────────────────────────
+
+ChannelRow::ChannelRow (int channelIndex,
+                        SimpleAlignmentAudioProcessor& processor,
+                        juce::AudioProcessorValueTreeState& apvts)
+    : mChannel  (channelIndex),
+      mProcessor (processor)
+{
+    // ── Name editor ───────────────────────────────────────────────────────────
+    mNameEditor.setText (processor.getChannelName (channelIndex), false);
+    styleTextEditor (mNameEditor);
+    mNameEditor.setJustification (juce::Justification::centredLeft);
+    mNameEditor.addListener (this);
+    addAndMakeVisible (mNameEditor);
+
+    // ── Delay: hidden slider + visible text editor ────────────────────────────
+    mDelaySlider.setRange (SA::ALIGN_DELAY_MIN, SA::ALIGN_DELAY_MAX, 0.0001);
+    mDelaySlider.setVisible (false);
+    addAndMakeVisible (mDelaySlider);
+
+    mDelayAttach = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (
+        apvts, ParamID::alignDelay (channelIndex), mDelaySlider);
+
+    mDelayEditor.setInputFilter (&mDelayFilter, false);
+    mDelayEditor.setText (juce::String (mDelaySlider.getValue(), 4), false);
+    styleTextEditor (mDelayEditor);
+    mDelayEditor.addListener (this);
+    addAndMakeVisible (mDelayEditor);
+
+    // ── Normalized delay display ──────────────────────────────────────────────
+    styleLabel (mNormDelayLabel);
+    mNormDelayLabel.setText ("0.0000 ms", juce::dontSendNotification);
+    addAndMakeVisible (mNormDelayLabel);
+
+    // ── Gain: hidden slider + visible text editor ─────────────────────────────
+    mGainSlider.setRange (SA::GAIN_MIN, SA::GAIN_MAX, 0.01);
+    mGainSlider.setVisible (false);
+    addAndMakeVisible (mGainSlider);
+
+    mGainAttach = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (
+        apvts, ParamID::chanGain (channelIndex), mGainSlider);
+
+    mGainEditor.setInputFilter (&mGainFilter, false);
+    mGainEditor.setText (juce::String (mGainSlider.getValue(), 2), false);
+    styleTextEditor (mGainEditor);
+    mGainEditor.addListener (this);
+    addAndMakeVisible (mGainEditor);
+
+    // ── Normalized gain display ───────────────────────────────────────────────
+    styleLabel (mNormGainLabel);
+    mNormGainLabel.setText ("0.00 dB", juce::dontSendNotification);
+    addAndMakeVisible (mNormGainLabel);
+}
+
+ChannelRow::~ChannelRow()
+{
+    mNameEditor.removeListener (this);
+    mDelayEditor.removeListener (this);
+    mGainEditor.removeListener (this);
+}
+
+void ChannelRow::resized()
+{
+    const int h = getHeight();
+    int x = 0;
+
+    mNameEditor.setBounds     (x, 0, COL_NAME,       h); x += COL_NAME       + COL_GAP;
+    mDelayEditor.setBounds    (x, 0, COL_DELAY,      h); x += COL_DELAY      + COL_GAP;
+    mNormDelayLabel.setBounds (x, 0, COL_NORM_DELAY, h); x += COL_NORM_DELAY + COL_GAP;
+    mGainEditor.setBounds     (x, 0, COL_GAIN,       h); x += COL_GAIN       + COL_GAP;
+    mNormGainLabel.setBounds  (x, 0, COL_NORM_GAIN,  h);
+}
+
+void ChannelRow::updateNormalizedDisplays()
+{
+    // Refresh the text editor values from the sliders (in case an automation
+    // or another part of the UI changed them)
+    mDelayEditor.setText (juce::String (mDelaySlider.getValue(), 4), false);
+    mGainEditor.setText  (juce::String (mGainSlider.getValue(),  2), false);
+
+    // Update normalized display labels
+    const float nd = mProcessor.getNormalizedDelay (mChannel);
+    const float ng = mProcessor.getNormalizedGain  (mChannel);
+
+    // Format with sign and units
+    juce::String delayStr = (nd >= 0 ? "+" : "")
+                          + juce::String (nd, 4) + " ms";
+    juce::String gainStr  = (ng >= 0 ? "+" : "")
+                          + juce::String (ng, 2) + " dB";
+
+    mNormDelayLabel.setText (delayStr, juce::dontSendNotification);
+    mNormGainLabel.setText  (gainStr,  juce::dontSendNotification);
+}
+
+void ChannelRow::setLocked (bool locked)
+{
+    mNameEditor.setEnabled  (!locked);
+    mDelayEditor.setEnabled (!locked);
+    mGainEditor.setEnabled  (!locked);
+
+    const juce::Colour lockedColour  (0xff1a1a1a);
+    const juce::Colour normalColour  (0xff2a2a2a);
+    auto bg = locked ? lockedColour : normalColour;
+
+    for (auto* ed : { &mNameEditor, &mDelayEditor, &mGainEditor })
+        ed->setColour (juce::TextEditor::backgroundColourId, bg);
+}
+
+void ChannelRow::commitEditor (juce::TextEditor& editor,
+                                juce::Slider&     slider,
+                                float             minVal,
+                                float             maxVal)
+{
+    float val = editor.getText().getFloatValue();
+    val = juce::jlimit (minVal, maxVal, val);
+    slider.setValue (val, juce::sendNotificationAsync);
+    editor.setText  (juce::String (val, (&editor == &mDelayEditor) ? 4 : 2), false);
+}
+
+void ChannelRow::textEditorReturnKeyPressed (juce::TextEditor& ed)
+{
+    if      (&ed == &mNameEditor)  mProcessor.setChannelName (mChannel, ed.getText());
+    else if (&ed == &mDelayEditor) commitEditor (ed, mDelaySlider, SA::ALIGN_DELAY_MIN, SA::ALIGN_DELAY_MAX);
+    else if (&ed == &mGainEditor)  commitEditor (ed, mGainSlider,  SA::GAIN_MIN,        SA::GAIN_MAX);
+}
+
+void ChannelRow::textEditorFocusLost (juce::TextEditor& ed)
+{
+    // Same action as pressing Return — validate and commit on focus loss
+    textEditorReturnKeyPressed (ed);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SimpleAlignmentAudioProcessorEditor
+// ─────────────────────────────────────────────────────────────────────────────
+
+SimpleAlignmentAudioProcessorEditor::SimpleAlignmentAudioProcessorEditor (
+        SimpleAlignmentAudioProcessor& p)
+    : AudioProcessorEditor (&p), processorRef (p)
+{
+    setSize (540, 340);
+
+    // ── Bypass toggle ─────────────────────────────────────────────────────────
+    addAndMakeVisible (bypassToggle);
+    bypassAttach = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
+        p.apvts, ParamID::Bypass, bypassToggle);
+
+    // ── Lock toggle ───────────────────────────────────────────────────────────
+    addAndMakeVisible (lockToggle);
+    lockToggle.onClick = [this] { applyLockState(); };
+
+    // ── System delay ──────────────────────────────────────────────────────────
+    systemDelayLabel.setText ("System Delay (ms):", juce::dontSendNotification);
+    styleLabel (systemDelayLabel);
+    systemDelayLabel.setJustificationType (juce::Justification::centredRight);
+    addAndMakeVisible (systemDelayLabel);
+
+    systemDelaySlider.setRange (SA::SYSTEM_DELAY_MIN, SA::SYSTEM_DELAY_MAX, 0.0001);
+    systemDelaySlider.setVisible (false);
+    addAndMakeVisible (systemDelaySlider);
+
+    systemDelayAttach = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (
+        p.apvts, ParamID::SystemDelay, systemDelaySlider);
+
+    systemDelayEditor.setInputFilter (&systemDelayFilter, false);
+    systemDelayEditor.setText (juce::String (systemDelaySlider.getValue(), 4), false);
+    styleTextEditor (systemDelayEditor);
+    systemDelayEditor.onReturnKey = [this] {
+        float val = juce::jlimit (SA::SYSTEM_DELAY_MIN, SA::SYSTEM_DELAY_MAX,
+                                  systemDelayEditor.getText().getFloatValue());
+        systemDelaySlider.setValue (val, juce::sendNotificationAsync);
+        systemDelayEditor.setText (juce::String (val, 4), false);
+    };
+    systemDelayEditor.onFocusLost = [this] {
+        systemDelayEditor.onReturnKey();
+    };
+    addAndMakeVisible (systemDelayEditor);
+
+    // ── Column headers ────────────────────────────────────────────────────────
+    auto makeHeader = [this] (juce::Label& lbl, const juce::String& text) {
+        lbl.setText (text, juce::dontSendNotification);
+        styleLabel  (lbl, true);
+        addAndMakeVisible (lbl);
+    };
+    makeHeader (hdrName,      "Channel");
+    makeHeader (hdrDelay,     "Align (ms)");
+    makeHeader (hdrNormDelay, "Norm Delay");
+    makeHeader (hdrGain,      "Gain (dB)");
+    makeHeader (hdrNormGain,  "Norm Gain");
+
+    // ── Channel rows ──────────────────────────────────────────────────────────
+    for (int ch = 0; ch < SA::NUM_CHANNELS; ++ch)
+    {
+        mRows[ch] = std::make_unique<ChannelRow> (ch, p, p.apvts);
+        addAndMakeVisible (*mRows[ch]);
+    }
+
+    // ── Start refresh timer at ~10 fps (normalized displays don't need fast updates) ──
+    startTimerHz (10);
+}
+
+SimpleAlignmentAudioProcessorEditor::~SimpleAlignmentAudioProcessorEditor()
+{
+    stopTimer();
+}
+
+void SimpleAlignmentAudioProcessorEditor::resized()
+{
+    const int margin  = 10;
+    const int ctrlH   = 24;
+    const int rowH    = ChannelRow::ROW_HEIGHT;
+    const int gap     = ChannelRow::COL_GAP;
+
+    int y = margin;
+
+    // ── Top control bar ───────────────────────────────────────────────────────
+    bypassToggle.setBounds (margin, y, 80, ctrlH);
+    lockToggle.setBounds   (margin + 90, y, 60, ctrlH);
+
+    systemDelayLabel.setBounds  (margin + 170, y, 130, ctrlH);
+    systemDelayEditor.setBounds (margin + 305, y,  80, ctrlH);
+    y += ctrlH + 10;
+
+    // ── Column headers ────────────────────────────────────────────────────────
+    // Match ChannelRow column positions exactly
+    int x = margin;
+    hdrName.setBounds      (x, y, ChannelRow::COL_NAME,       ctrlH); x += ChannelRow::COL_NAME       + gap;
+    hdrDelay.setBounds     (x, y, ChannelRow::COL_DELAY,      ctrlH); x += ChannelRow::COL_DELAY      + gap;
+    hdrNormDelay.setBounds (x, y, ChannelRow::COL_NORM_DELAY, ctrlH); x += ChannelRow::COL_NORM_DELAY + gap;
+    hdrGain.setBounds      (x, y, ChannelRow::COL_GAIN,       ctrlH); x += ChannelRow::COL_GAIN       + gap;
+    hdrNormGain.setBounds  (x, y, ChannelRow::COL_NORM_GAIN,  ctrlH);
+    y += ctrlH + 4;
+
+    // ── Channel rows ──────────────────────────────────────────────────────────
+    for (int ch = 0; ch < SA::NUM_CHANNELS; ++ch)
+    {
+        mRows[ch]->setBounds (margin, y, getWidth() - 2 * margin, rowH);
+        y += rowH + 2;
+    }
+
+    // Adjust window height to content
+    // (called during construction so setSize here would recurse; omit for safety)
+}
+
+void SimpleAlignmentAudioProcessorEditor::paint (juce::Graphics& g)
+{
+    g.fillAll (juce::Colour (0xff222222));
+
+    // Section divider above the channel table
+    const int dividerY = mRows[0]->getY() - 3;
+    g.setColour (juce::Colour (0xff444444));
+    g.drawHorizontalLine (dividerY, 10.0f, static_cast<float> (getWidth() - 10));
+
+    // Plugin title
+    g.setFont (juce::Font (15.0f, juce::Font::bold));
+    g.setColour (juce::Colours::white);
+    g.drawText ("SimpleAlignment", 0, 0, getWidth(), 20,
+                juce::Justification::centred, true);
+}
+
+void SimpleAlignmentAudioProcessorEditor::timerCallback()
+{
+    // Refresh system delay editor text if slider was moved externally
+    systemDelayEditor.setText (
+        juce::String (systemDelaySlider.getValue(), 4), false);
+
+    // Refresh normalized displays in each row
+    processorRef.recomputeNormalized();
+    for (auto& row : mRows)
+        row->updateNormalizedDisplays();
+}
+
+void SimpleAlignmentAudioProcessorEditor::applyLockState()
+{
+    const bool locked = lockToggle.getToggleState();
+
+    systemDelayEditor.setEnabled (!locked);
+    systemDelayEditor.setColour  (juce::TextEditor::backgroundColourId,
+                                   locked ? juce::Colour (0xff1a1a1a)
+                                          : juce::Colour (0xff2a2a2a));
+
+    for (auto& row : mRows)
+        row->setLocked (locked);
+}
