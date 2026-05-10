@@ -11,7 +11,6 @@
 namespace SA {
 
     static constexpr int    NUM_CHANNELS     = 8;
-    static constexpr double SAMPLE_RATE      = 48000.0;
 
     // Delay parameter limits (milliseconds)
     static constexpr float  SYSTEM_DELAY_MIN =   0.0f;
@@ -23,12 +22,10 @@ namespace SA {
     static constexpr float  GAIN_MIN         = -12.0f;
     static constexpr float  GAIN_MAX         = +12.0f;
 
-    // Maximum possible effective delay = system max + alignment max (ms → samples)
+    // Maximum possible effective delay = system max + alignment max (ms)
     // effective_delay[ch] = system_delay + (align_delay[ch] - min(align_delay))
     // worst case: 30ms + (20ms - (-20ms)) = 70ms
     static constexpr float  MAX_DELAY_MS     = 70.0f;
-    static constexpr int    MAX_DELAY_SAMPLES =
-        static_cast<int> (MAX_DELAY_MS * 0.001f * SAMPLE_RATE) + 2;  // +2 for interpolation guard
 
     // Default channel descriptions (index matches channel number)
     static constexpr const char* DEFAULT_NAMES[NUM_CHANNELS] = {
@@ -149,6 +146,9 @@ private:
 
     // ── Channel name storage (separate ValueTree, not APVTS) ─────────────────
     juce::ValueTree mNamesTree { "ChannelNames" };
+
+    // ── Runtime sample rate (captured in prepareToPlay) ──────────────────────
+    double mSampleRate { 48000.0 };
 
     // ── Cached normalized values (updated by recomputeNormalized) ────────────
     std::array<std::atomic<float>, SA::NUM_CHANNELS> mNormDelay;

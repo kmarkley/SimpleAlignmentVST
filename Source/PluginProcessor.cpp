@@ -151,11 +151,13 @@ bool SimpleAlignmentAudioProcessor::isBusesLayoutSupported (const BusesLayout& l
 // Prepare / Release
 // ─────────────────────────────────────────────────────────────────────────────
 
-void SimpleAlignmentAudioProcessor::prepareToPlay (double /*sampleRate*/,
+void SimpleAlignmentAudioProcessor::prepareToPlay (double sampleRate,
                                                     int   /*samplesPerBlock*/)
 {
+    mSampleRate = sampleRate;
+    const int maxDelaySamples = static_cast<int> (SA::MAX_DELAY_MS * 0.001f * sampleRate) + 2;
     for (auto& dl : mDelayLines)
-        dl.prepare (SA::MAX_DELAY_SAMPLES);
+        dl.prepare (maxDelaySamples);
 
     recomputeNormalized();
 }
@@ -259,8 +261,8 @@ void SimpleAlignmentAudioProcessor::processBlock (juce::AudioBuffer<float>& buff
         const float effectiveDelayMs = systemDelayMs
                                      + mNormDelay[ch].load (std::memory_order_relaxed);
 
-        // Convert ms → fractional samples at 48kHz
-        const float delaySamples = effectiveDelayMs * static_cast<float> (SA::SAMPLE_RATE)
+        // Convert ms → fractional samples
+        const float delaySamples = effectiveDelayMs * static_cast<float> (mSampleRate)
                                    / 1000.0f;
 
         // Process delay (writes into the same channel in-place)
