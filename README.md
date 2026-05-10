@@ -137,4 +137,4 @@ SimpleAlignment/
 
 ## License
 
-MIT — see `LICENSE` for details.
+GPL v3 — see `LICENSE` for details. This project links against JUCE, which is licensed under the GNU General Public License v3.
