@@ -156,6 +156,9 @@ private:
     // ── Channel rows ──────────────────────────────────────────────────────────
     std::array<std::unique_ptr<ChannelRow>, SA::NUM_CHANNELS> mRows;
 
+    // ── Tooltip window (one per editor; displays setTooltip() text on hover) ──
+    juce::TooltipWindow mTooltipWindow { this };
+
     // ── Timer ─────────────────────────────────────────────────────────────────
     void timerCallback() override;
 

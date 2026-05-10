@@ -37,6 +37,7 @@ ChannelRow::ChannelRow (int channelIndex,
     mNameEditor.setText (processor.getChannelName (channelIndex), false);
     styleTextEditor (mNameEditor);
     mNameEditor.setJustification (juce::Justification::centredLeft);
+    mNameEditor.setTooltip ("Editable channel name — persists across restarts");
     mNameEditor.addListener (this);
     addAndMakeVisible (mNameEditor);
 
@@ -51,12 +52,15 @@ ChannelRow::ChannelRow (int channelIndex,
     mDelayEditor.setInputFilter (&mDelayFilter, false);
     mDelayEditor.setText (juce::String (mDelaySlider.getValue(), 4), false);
     styleTextEditor (mDelayEditor);
+    mDelayEditor.setTooltip ("Raw alignment delay for this channel (−20 to +20 ms)");
     mDelayEditor.addListener (this);
     addAndMakeVisible (mDelayEditor);
 
     // ── Normalized delay display ──────────────────────────────────────────────
     styleLabel (mNormDelayLabel);
     mNormDelayLabel.setText ("0.0000 ms", juce::dontSendNotification);
+    mNormDelayLabel.setTooltip ("Computed delay applied to this channel: alignment delay minus "
+                                "the minimum across all channels (always \xe2\x89\xa5 0)");
     addAndMakeVisible (mNormDelayLabel);
 
     // ── Gain: hidden slider + visible text editor ─────────────────────────────
@@ -70,12 +74,15 @@ ChannelRow::ChannelRow (int channelIndex,
     mGainEditor.setInputFilter (&mGainFilter, false);
     mGainEditor.setText (juce::String (mGainSlider.getValue(), 2), false);
     styleTextEditor (mGainEditor);
+    mGainEditor.setTooltip ("Raw gain trim for this channel (\xe2\x88\x9212 to +12 dB)");
     mGainEditor.addListener (this);
     addAndMakeVisible (mGainEditor);
 
     // ── Normalized gain display ───────────────────────────────────────────────
     styleLabel (mNormGainLabel);
     mNormGainLabel.setText ("0.00 dB", juce::dontSendNotification);
+    mNormGainLabel.setTooltip ("Computed gain applied to this channel: gain minus the maximum "
+                               "across all channels (always \xe2\x89\xa4 0 dB)");
     addAndMakeVisible (mNormGainLabel);
 }
 
@@ -168,16 +175,19 @@ SimpleAlignmentAudioProcessorEditor::SimpleAlignmentAudioProcessorEditor (
     setSize (540, 340);
 
     // ── Bypass toggle ─────────────────────────────────────────────────────────
+    bypassToggle.setTooltip ("Hard bypass: passes audio through with no delay or gain processing");
     addAndMakeVisible (bypassToggle);
     bypassAttach = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
         p.apvts, ParamID::Bypass, bypassToggle);
 
     // ── Lock toggle ───────────────────────────────────────────────────────────
+    lockToggle.setTooltip ("Lock all controls to prevent accidental edits");
     addAndMakeVisible (lockToggle);
     lockToggle.onClick = [this] { applyLockState(); };
 
     // ── System delay ──────────────────────────────────────────────────────────
     systemDelayLabel.setText ("System Delay (ms):", juce::dontSendNotification);
+    systemDelayLabel.setTooltip ("Global delay offset added to all channels (0–30 ms)");
     styleLabel (systemDelayLabel);
     systemDelayLabel.setJustificationType (juce::Justification::centredRight);
     addAndMakeVisible (systemDelayLabel);
@@ -191,6 +201,7 @@ SimpleAlignmentAudioProcessorEditor::SimpleAlignmentAudioProcessorEditor (
 
     systemDelayEditor.setInputFilter (&systemDelayFilter, false);
     systemDelayEditor.setText (juce::String (systemDelaySlider.getValue(), 4), false);
+    systemDelayEditor.setTooltip ("Global delay offset added to all channels (0–30 ms)");
     styleTextEditor (systemDelayEditor);
     systemDelayEditor.onReturnKey = [this] {
         float val = juce::jlimit (SA::SYSTEM_DELAY_MIN, SA::SYSTEM_DELAY_MAX,
@@ -214,6 +225,12 @@ SimpleAlignmentAudioProcessorEditor::SimpleAlignmentAudioProcessorEditor (
     makeHeader (hdrNormDelay, "Norm Delay");
     makeHeader (hdrGain,      "Gain (dB)");
     makeHeader (hdrNormGain,  "Norm Gain");
+
+    hdrName.setTooltip      ("Editable channel name — persists across restarts");
+    hdrDelay.setTooltip     ("Raw alignment delay input per channel (\xe2\x88\x9220 to +20 ms)");
+    hdrNormDelay.setTooltip ("Effective delay applied: alignment minus the minimum across all channels");
+    hdrGain.setTooltip      ("Raw gain trim per channel (\xe2\x88\x9212 to +12 dB)");
+    hdrNormGain.setTooltip  ("Effective gain applied: trim minus the maximum across all channels");
 
     // ── Channel rows ──────────────────────────────────────────────────────────
     for (int ch = 0; ch < SA::NUM_CHANNELS; ++ch)
