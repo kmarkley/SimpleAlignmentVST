@@ -83,6 +83,8 @@ public:
     static constexpr int COL_NORM_DELAY = 90;
     static constexpr int COL_GAIN       = 70;
     static constexpr int COL_NORM_GAIN  = 80;
+    static constexpr int COL_MUTE       = 28;
+    static constexpr int COL_INVERT     = 28;
     static constexpr int COL_GAP        = 6;
     static constexpr int ROW_HEIGHT     = 26;
 
@@ -95,10 +97,14 @@ private:
     juce::Label      mNormDelayLabel;
     juce::TextEditor mGainEditor;
     juce::Label      mNormGainLabel;
+    juce::TextButton mMuteButton   { "M" };
+    juce::TextButton mInvertButton { "\xc3\x98" };  // Ø
 
-    // APVTS attachments for delay and gain
+    // APVTS attachments for delay, gain, mute, and invert
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> mDelayAttach;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> mGainAttach;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> mMuteAttach;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> mInvertAttach;
 
     // Hidden sliders that hold the APVTS parameter values;
     // the visible TextEditors drive these sliders.
@@ -151,7 +157,7 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> systemDelayAttach;
 
     // ── Column headers ────────────────────────────────────────────────────────
-    juce::Label hdrName, hdrDelay, hdrNormDelay, hdrGain, hdrNormGain;
+    juce::Label hdrName, hdrDelay, hdrNormDelay, hdrGain, hdrNormGain, hdrMute, hdrInvert;
 
     // ── Channel rows ──────────────────────────────────────────────────────────
     std::array<std::unique_ptr<ChannelRow>, SA::NUM_CHANNELS> mRows;

@@ -105,6 +105,12 @@ SimpleAlignmentAudioProcessor::createParameterLayout()
             juce::NormalisableRange<float> (SA::GAIN_MIN, SA::GAIN_MAX, 0.01f),
             0.0f,
             juce::AudioParameterFloatAttributes().withLabel ("dB")));
+
+        layout.add (std::make_unique<juce::AudioParameterBool> (
+            ParamID::chanMute   (ch), "Mute "   + juce::String (ch), false));
+
+        layout.add (std::make_unique<juce::AudioParameterBool> (
+            ParamID::chanInvert (ch), "Invert " + juce::String (ch), false));
     }
 
     return layout;
@@ -265,17 +271,30 @@ void SimpleAlignmentAudioProcessor::processBlock (juce::AudioBuffer<float>& buff
         const float delaySamples = effectiveDelayMs * static_cast<float> (mSampleRate)
                                    / 1000.0f;
 
-        // Process delay (writes into the same channel in-place)
+        // Process delay (always runs to keep delay-line state current)
         mDelayLines[ch].process (buffer.getReadPointer  (ch),
                                   buffer.getWritePointer (ch),
                                   numSamples,
                                   delaySamples);
+
+        // Mute: silence this channel and skip further processing
+        const bool muted = apvts.getRawParameterValue (ParamID::chanMute (ch))->load() > 0.5f;
+        if (muted)
+        {
+            buffer.clear (ch, 0, numSamples);
+            continue;
+        }
 
         // Apply normalized gain (dB → linear)
         const float normGainDB     = mNormGain[ch].load (std::memory_order_relaxed);
         const float normGainLinear = juce::Decibels::decibelsToGain (normGainDB);
         if (normGainLinear != 1.0f)
             buffer.applyGain (ch, 0, numSamples, normGainLinear);
+
+        // Invert: negate all samples (polarity flip)
+        const bool inverted = apvts.getRawParameterValue (ParamID::chanInvert (ch))->load() > 0.5f;
+        if (inverted)
+            buffer.applyGain (ch, 0, numSamples, -1.0f);
     }
 }
 

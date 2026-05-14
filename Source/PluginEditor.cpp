@@ -84,6 +84,28 @@ ChannelRow::ChannelRow (int channelIndex,
     mNormGainLabel.setTooltip ("Computed gain applied to this channel: gain minus the maximum "
                                "across all channels (always \xe2\x89\xa4 0 dB)");
     addAndMakeVisible (mNormGainLabel);
+
+    // ── Mute button ───────────────────────────────────────────────────────────
+    mMuteButton.setClickingTogglesState (true);
+    mMuteButton.setColour (juce::TextButton::buttonColourId,   juce::Colour (0xff333333));
+    mMuteButton.setColour (juce::TextButton::buttonOnColourId, juce::Colour (0xffbb3333));
+    mMuteButton.setColour (juce::TextButton::textColourOffId,  juce::Colours::lightgrey);
+    mMuteButton.setColour (juce::TextButton::textColourOnId,   juce::Colours::white);
+    mMuteButton.setTooltip ("Silence this channel");
+    addAndMakeVisible (mMuteButton);
+    mMuteAttach = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
+        apvts, ParamID::chanMute (channelIndex), mMuteButton);
+
+    // ── Invert button ─────────────────────────────────────────────────────────
+    mInvertButton.setClickingTogglesState (true);
+    mInvertButton.setColour (juce::TextButton::buttonColourId,   juce::Colour (0xff333333));
+    mInvertButton.setColour (juce::TextButton::buttonOnColourId, juce::Colour (0xff886600));
+    mInvertButton.setColour (juce::TextButton::textColourOffId,  juce::Colours::lightgrey);
+    mInvertButton.setColour (juce::TextButton::textColourOnId,   juce::Colours::white);
+    mInvertButton.setTooltip ("Invert polarity of this channel");
+    addAndMakeVisible (mInvertButton);
+    mInvertAttach = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
+        apvts, ParamID::chanInvert (channelIndex), mInvertButton);
 }
 
 ChannelRow::~ChannelRow()
@@ -102,7 +124,9 @@ void ChannelRow::resized()
     mDelayEditor.setBounds    (x, 0, COL_DELAY,      h); x += COL_DELAY      + COL_GAP;
     mNormDelayLabel.setBounds (x, 0, COL_NORM_DELAY, h); x += COL_NORM_DELAY + COL_GAP;
     mGainEditor.setBounds     (x, 0, COL_GAIN,       h); x += COL_GAIN       + COL_GAP;
-    mNormGainLabel.setBounds  (x, 0, COL_NORM_GAIN,  h);
+    mNormGainLabel.setBounds  (x, 0, COL_NORM_GAIN,  h); x += COL_NORM_GAIN  + COL_GAP;
+    mMuteButton.setBounds     (x, 0, COL_MUTE,       h); x += COL_MUTE       + COL_GAP;
+    mInvertButton.setBounds   (x, 0, COL_INVERT,     h);
 }
 
 void ChannelRow::updateNormalizedDisplays()
@@ -128,9 +152,11 @@ void ChannelRow::updateNormalizedDisplays()
 
 void ChannelRow::setLocked (bool locked)
 {
-    mNameEditor.setEnabled  (!locked);
-    mDelayEditor.setEnabled (!locked);
-    mGainEditor.setEnabled  (!locked);
+    mNameEditor.setEnabled   (!locked);
+    mDelayEditor.setEnabled  (!locked);
+    mGainEditor.setEnabled   (!locked);
+    mMuteButton.setEnabled   (!locked);
+    mInvertButton.setEnabled (!locked);
 
     const juce::Colour lockedColour  (0xff1a1a1a);
     const juce::Colour normalColour  (0xff2a2a2a);
@@ -172,7 +198,7 @@ SimpleAlignmentAudioProcessorEditor::SimpleAlignmentAudioProcessorEditor (
         SimpleAlignmentAudioProcessor& p)
     : AudioProcessorEditor (&p), processorRef (p)
 {
-    setSize (540, 340);
+    setSize (580, 340);
 
     // ── Bypass toggle ─────────────────────────────────────────────────────────
     bypassToggle.setTooltip ("Hard bypass: passes audio through with no delay or gain processing");
@@ -225,12 +251,16 @@ SimpleAlignmentAudioProcessorEditor::SimpleAlignmentAudioProcessorEditor (
     makeHeader (hdrNormDelay, "Norm Delay");
     makeHeader (hdrGain,      "Gain (dB)");
     makeHeader (hdrNormGain,  "Norm Gain");
+    makeHeader (hdrMute,      "Mute");
+    makeHeader (hdrInvert,    "\xc3\x98");  // Ø
 
     hdrName.setTooltip      ("Editable channel name — persists across restarts");
     hdrDelay.setTooltip     ("Raw alignment delay input per channel (\xe2\x88\x9220 to +20 ms)");
     hdrNormDelay.setTooltip ("Effective delay applied: alignment minus the minimum across all channels");
     hdrGain.setTooltip      ("Raw gain trim per channel (\xe2\x88\x9212 to +12 dB)");
     hdrNormGain.setTooltip  ("Effective gain applied: trim minus the maximum across all channels");
+    hdrMute.setTooltip      ("Silence individual channels");
+    hdrInvert.setTooltip    ("Invert polarity (phase flip) of individual channels");
 
     // ── Channel rows ──────────────────────────────────────────────────────────
     for (int ch = 0; ch < SA::NUM_CHANNELS; ++ch)
@@ -272,7 +302,9 @@ void SimpleAlignmentAudioProcessorEditor::resized()
     hdrDelay.setBounds     (x, y, ChannelRow::COL_DELAY,      ctrlH); x += ChannelRow::COL_DELAY      + gap;
     hdrNormDelay.setBounds (x, y, ChannelRow::COL_NORM_DELAY, ctrlH); x += ChannelRow::COL_NORM_DELAY + gap;
     hdrGain.setBounds      (x, y, ChannelRow::COL_GAIN,       ctrlH); x += ChannelRow::COL_GAIN       + gap;
-    hdrNormGain.setBounds  (x, y, ChannelRow::COL_NORM_GAIN,  ctrlH);
+    hdrNormGain.setBounds  (x, y, ChannelRow::COL_NORM_GAIN,  ctrlH); x += ChannelRow::COL_NORM_GAIN  + gap;
+    hdrMute.setBounds      (x, y, ChannelRow::COL_MUTE,       ctrlH); x += ChannelRow::COL_MUTE       + gap;
+    hdrInvert.setBounds    (x, y, ChannelRow::COL_INVERT,     ctrlH);
     y += ctrlH + 4;
 
     // ── Channel rows ──────────────────────────────────────────────────────────

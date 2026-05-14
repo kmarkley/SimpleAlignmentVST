@@ -46,6 +46,8 @@ namespace ParamID {
     // e.g. alignDelay(2) → "align_delay_2"
     inline juce::String alignDelay (int ch) { return "align_delay_" + juce::String(ch); }
     inline juce::String chanGain   (int ch) { return "chan_gain_"   + juce::String(ch); }
+    inline juce::String chanMute   (int ch) { return "chan_mute_"   + juce::String(ch); }
+    inline juce::String chanInvert (int ch) { return "chan_invert_" + juce::String(ch); }
     // Channel name is stored in a separate ValueTree (not APVTS) because
     // APVTS doesn't natively support string parameters.
     inline juce::String chanName   (int ch) { return "chan_name_"   + juce::String(ch); }
