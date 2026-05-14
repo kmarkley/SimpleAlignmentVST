@@ -8,6 +8,8 @@ A VST3 audio plugin that applies per-channel alignment delays and gain adjustmen
 
 - **8-channel delay alignment** — independent delay per channel with linear interpolation for sub-sample accuracy
 - **Per-channel gain trim** — ±12 dB per channel
+- **Per-channel mute** — silence any channel independently
+- **Per-channel invert** — polarity flip (phase inversion) per channel
 - **System delay** — global offset added to all channels (0–30 ms)
 - **Automatic normalization** — the channel with the lowest delay always gets zero delay; all others are relative to it. Similarly, the loudest channel gets 0 dB and all others are attenuated relative to it. This ensures no unnecessary delay or gain reduction is introduced.
 - **Zero latency on the reference channel** — if the effective delay for a channel is 0.0 ms, the audio bypasses the circular buffer entirely
@@ -47,7 +49,11 @@ else:
 
     for each channel:
         apply delay of effective_delay[ch] ms  (linear interpolation)
-        apply gain  of norm_gain[ch] dB
+        if mute[ch]:
+            output silence
+        else:
+            apply gain of norm_gain[ch] dB
+            if invert[ch]: negate all samples
 ```
 
 ### Delay implementation
@@ -63,9 +69,9 @@ When `effective_delay[ch] == 0.0`, the channel bypasses the buffer entirely for 
 | Control | Description |
 |---------|-------------|
 | **Bypass** | Toggle passthrough mode |
-| **Lock** | Disable all text entry fields |
+| **Lock** | Disable all controls |
 | **System Delay** | Global delay offset in ms (0.0–30.0) |
-| **Channel / Align / Norm Delay / Gain / Norm Gain** | Per-channel columns (see below) |
+| **Per-channel columns** | See below |
 
 ### Per-channel columns
 
@@ -76,6 +82,8 @@ When `effective_delay[ch] == 0.0`, the channel bypasses the buffer entirely for 
 | Norm Delay | — | — | Computed: align − min(align) |
 | Gain (dB) | −12.0 to +12.0 | 0.0 | Raw gain input |
 | Norm Gain | — | — | Computed: gain − max(gain) |
+| M | on/off | off | Mute: silences the channel (delay line still runs) |
+| Ø | on/off | off | Invert: flips polarity after gain is applied |
 
 ---
 
