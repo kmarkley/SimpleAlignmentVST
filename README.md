@@ -1,6 +1,10 @@
 # SimpleAlignmentVST
 
-A VST3 audio plugin that applies per-channel alignment delays and gain adjustments to an 8-channel audio stream. Designed for use on a Raspberry Pi hosted by the **Hang Loose Host** application.
+A VST3 audio plugin that applies per-channel alignment delays and gain adjustments to an 8-channel audio stream. 
+
+Intended use is to compensate for time-of-flight and sensistivity/distance differences between speakers at a system-wide level, avoiding the need to track and include these adjustments in multiple convolution configurations.
+
+Designed for use on a Raspberry Pi. Untested on other platforms.
 
 ---
 
@@ -10,8 +14,8 @@ A VST3 audio plugin that applies per-channel alignment delays and gain adjustmen
 - **Per-channel gain trim** — ±12 dB per channel
 - **Per-channel mute** — silence any channel independently
 - **Per-channel invert** — polarity flip (phase inversion) per channel
-- **System delay** — global offset added to all channels (0–30 ms)
-- **Automatic normalization** — the channel with the lowest delay always gets zero delay; all others are relative to it. Similarly, the loudest channel gets 0 dB and all others are attenuated relative to it. This ensures no unnecessary delay or gain reduction is introduced.
+- **System delay** — global offset added to all channels (0–30 ms) for video sync issues.
+- **Automatic normalization** — the channel with the lowest delay setting always gets zero delay; all others are relative to it. Similarly, the channel with the highest gain setting gets 0 dB and all others are attenuated to match. This ensures no unnecessary delay or gain reduction is introduced.
 - **Zero latency on the reference channel** — if the effective delay for a channel is 0.0 ms, the audio bypasses the circular buffer entirely
 - **Lock control** — prevents accidental changes to any text field
 - **Bypass** — hard passthrough with zero processing
