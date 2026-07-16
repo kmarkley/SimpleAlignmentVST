@@ -15,6 +15,7 @@ Designed for use on a Raspberry Pi. Untested on other platforms.
 - **Per-channel mute** — silence any channel independently
 - **Per-channel invert** — polarity flip (phase inversion) per channel
 - **System delay** — global offset added to all channels (0–30 ms) for video sync issues.
+- **System attenuation** — global gain reduction applied to all channels (−30–0 dB) to cap maximum output for system protection.
 - **Automatic normalization** — the channel with the lowest delay setting always gets zero delay; all others are relative to it. Similarly, the channel with the highest gain setting gets 0 dB and all others are attenuated to match. This ensures no unnecessary delay or gain reduction is introduced.
 - **Zero latency on the reference channel** — if the effective delay for a channel is 0.0 ms, the audio bypasses the circular buffer entirely
 - **Lock control** — prevents accidental changes to any text field
@@ -50,13 +51,14 @@ else:
     norm_gain[ch]  = chan_gain[ch]   - max(chan_gain)
 
     effective_delay[ch] = system_delay + norm_delay[ch]
+    effective_gain[ch]  = norm_gain[ch] + system_attenuation
 
     for each channel:
         apply delay of effective_delay[ch] ms  (linear interpolation)
         if mute[ch]:
             output silence
         else:
-            apply gain of norm_gain[ch] dB
+            apply gain of effective_gain[ch] dB
             if invert[ch]: negate all samples
 ```
 
@@ -75,6 +77,7 @@ When `effective_delay[ch] == 0.0`, the channel bypasses the buffer entirely for 
 | **Bypass** | Toggle passthrough mode |
 | **Lock** | Disable all controls |
 | **System Delay** | Global delay offset in ms (0.0–30.0) |
+| **System Attenuation** | Global gain reduction in dB (−30.0–0.0), for system protection / max output limiting |
 | **Per-channel columns** | See below |
 
 ### Per-channel columns

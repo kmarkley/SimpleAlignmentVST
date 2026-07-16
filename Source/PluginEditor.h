@@ -152,10 +152,16 @@ private:
     juce::TextEditor    systemDelayEditor;
     juce::Slider        systemDelaySlider;   ///< hidden; driven by editor
 
-    NumericTextFilter   systemDelayFilter { SA::SYSTEM_DELAY_MIN, SA::SYSTEM_DELAY_MAX };
+    juce::Label         systemAttenuationLabel;
+    juce::TextEditor    systemAttenuationEditor;
+    juce::Slider        systemAttenuationSlider;   ///< hidden; driven by editor
+
+    NumericTextFilter   systemDelayFilter       { SA::SYSTEM_DELAY_MIN, SA::SYSTEM_DELAY_MAX };
+    NumericTextFilter   systemAttenuationFilter { SA::SYSTEM_ATTEN_MIN, SA::SYSTEM_ATTEN_MAX };
 
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> bypassAttach;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> systemDelayAttach;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> systemAttenuationAttach;
 
     // ── Column headers ────────────────────────────────────────────────────────
     juce::Label hdrName, hdrDelay, hdrNormDelay, hdrGain, hdrNormGain, hdrMute, hdrInvert;

@@ -199,7 +199,7 @@ SimpleAlignmentAudioProcessorEditor::SimpleAlignmentAudioProcessorEditor (
         SimpleAlignmentAudioProcessor& p)
     : AudioProcessorEditor (&p), processorRef (p)
 {
-    setSize (580, 340);
+    setSize (580, 374);
 
     // ── Bypass toggle ─────────────────────────────────────────────────────────
     bypassToggle.setTooltip ("Hard bypass: passes audio through with no delay or gain processing");
@@ -240,6 +240,37 @@ SimpleAlignmentAudioProcessorEditor::SimpleAlignmentAudioProcessorEditor (
         systemDelayEditor.onReturnKey();
     };
     addAndMakeVisible (systemDelayEditor);
+
+    // ── System attenuation ────────────────────────────────────────────────────
+    systemAttenuationLabel.setText ("Attenuation (dB):", juce::dontSendNotification);
+    systemAttenuationLabel.setTooltip ("Global attenuation applied to all channels for system "
+                                       "protection / max output limiting (-30 to 0 dB)");
+    styleLabel (systemAttenuationLabel);
+    systemAttenuationLabel.setJustificationType (juce::Justification::centredRight);
+    addAndMakeVisible (systemAttenuationLabel);
+
+    systemAttenuationSlider.setRange (SA::SYSTEM_ATTEN_MIN, SA::SYSTEM_ATTEN_MAX, 0.01);
+    systemAttenuationSlider.setVisible (false);
+    addAndMakeVisible (systemAttenuationSlider);
+
+    systemAttenuationAttach = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (
+        p.apvts, ParamID::SystemAttenuation, systemAttenuationSlider);
+
+    systemAttenuationEditor.setInputFilter (&systemAttenuationFilter, false);
+    systemAttenuationEditor.setText (juce::String (systemAttenuationSlider.getValue(), 2), false);
+    systemAttenuationEditor.setTooltip ("Global attenuation applied to all channels for system "
+                                        "protection / max output limiting (-30 to 0 dB)");
+    styleTextEditor (systemAttenuationEditor);
+    systemAttenuationEditor.onReturnKey = [this] {
+        float val = juce::jlimit (SA::SYSTEM_ATTEN_MIN, SA::SYSTEM_ATTEN_MAX,
+                                  systemAttenuationEditor.getText().getFloatValue());
+        systemAttenuationSlider.setValue (val, juce::sendNotificationAsync);
+        systemAttenuationEditor.setText (juce::String (val, 2), false);
+    };
+    systemAttenuationEditor.onFocusLost = [this] {
+        systemAttenuationEditor.onReturnKey();
+    };
+    addAndMakeVisible (systemAttenuationEditor);
 
     // ── Column headers ────────────────────────────────────────────────────────
     auto makeHeader = [this] (juce::Label& lbl, const juce::String& text) {
@@ -291,9 +322,14 @@ void SimpleAlignmentAudioProcessorEditor::resized()
     // ── Top control bar ───────────────────────────────────────────────────────
     bypassToggle.setBounds (margin, y, 80, ctrlH);
     lockToggle.setBounds   (margin + 90, y, 60, ctrlH);
+    y += ctrlH + 10;
 
-    systemDelayLabel.setBounds  (margin + 170, y, 130, ctrlH);
-    systemDelayEditor.setBounds (margin + 305, y,  80, ctrlH);
+    // ── System delay / attenuation bar ────────────────────────────────────────
+    systemDelayLabel.setBounds  (margin,       y, 130, ctrlH);
+    systemDelayEditor.setBounds (margin + 135, y,  70, ctrlH);
+
+    systemAttenuationLabel.setBounds  (margin + 220, y, 140, ctrlH);
+    systemAttenuationEditor.setBounds (margin + 365, y,  70, ctrlH);
     y += ctrlH + 10;
 
     // ── Column headers ────────────────────────────────────────────────────────
@@ -337,9 +373,11 @@ void SimpleAlignmentAudioProcessorEditor::paint (juce::Graphics& g)
 
 void SimpleAlignmentAudioProcessorEditor::timerCallback()
 {
-    // Refresh system delay editor text if slider was moved externally
+    // Refresh system delay / attenuation editor text if sliders were moved externally
     systemDelayEditor.setText (
         juce::String (systemDelaySlider.getValue(), 4), false);
+    systemAttenuationEditor.setText (
+        juce::String (systemAttenuationSlider.getValue(), 2), false);
 
     // Refresh normalized displays in each row
     processorRef.recomputeNormalized();
@@ -355,6 +393,11 @@ void SimpleAlignmentAudioProcessorEditor::applyLockState()
     systemDelayEditor.setColour  (juce::TextEditor::backgroundColourId,
                                    locked ? juce::Colour (0xff1a1a1a)
                                           : juce::Colour (0xff2a2a2a));
+
+    systemAttenuationEditor.setEnabled (!locked);
+    systemAttenuationEditor.setColour  (juce::TextEditor::backgroundColourId,
+                                        locked ? juce::Colour (0xff1a1a1a)
+                                               : juce::Colour (0xff2a2a2a));
 
     for (auto& row : mRows)
         row->setLocked (locked);

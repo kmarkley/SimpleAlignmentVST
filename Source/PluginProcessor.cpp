@@ -90,6 +90,14 @@ SimpleAlignmentAudioProcessor::createParameterLayout()
         0.0f,
         juce::AudioParameterFloatAttributes().withLabel ("ms")));
 
+    // System attenuation: -30.0 – 0.0 dB, default 0.0 (system protection / max output cap)
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        ParamID::SystemAttenuation,
+        "System Attenuation",
+        juce::NormalisableRange<float> (SA::SYSTEM_ATTEN_MIN, SA::SYSTEM_ATTEN_MAX, 0.01f),
+        0.0f,
+        juce::AudioParameterFloatAttributes().withLabel ("dB")));
+
     // Per-channel alignment delay and gain
     for (int ch = 0; ch < SA::NUM_CHANNELS; ++ch)
     {
@@ -254,7 +262,9 @@ void SimpleAlignmentAudioProcessor::processBlock (juce::AudioBuffer<float>& buff
         return;  // in-place buffer requires no copy for passthrough
 
     // ── Read parameters ───────────────────────────────────────────────────────
-    const float systemDelayMs = apvts.getRawParameterValue (ParamID::SystemDelay)->load();
+    const float systemDelayMs    = apvts.getRawParameterValue (ParamID::SystemDelay)->load();
+    const float systemAttenDb    = apvts.getRawParameterValue (ParamID::SystemAttenuation)->load();
+    const float systemAttenLinear = juce::Decibels::decibelsToGain (systemAttenDb);
 
     // Recompute normalized values so they're current for this block
     recomputeNormalized();
@@ -286,11 +296,13 @@ void SimpleAlignmentAudioProcessor::processBlock (juce::AudioBuffer<float>& buff
             continue;
         }
 
-        // Apply normalized gain (dB → linear)
-        const float normGainDB     = mNormGain[ch].load (std::memory_order_relaxed);
-        const float normGainLinear = juce::Decibels::decibelsToGain (normGainDB);
-        if (normGainLinear != 1.0f)
-            buffer.applyGain (ch, 0, numSamples, normGainLinear);
+        // Apply normalized gain (dB → linear) together with the global system
+        // attenuation (system protection / max output cap) in a single multiply.
+        const float normGainDB      = mNormGain[ch].load (std::memory_order_relaxed);
+        const float normGainLinear  = juce::Decibels::decibelsToGain (normGainDB);
+        const float totalGainLinear = normGainLinear * systemAttenLinear;
+        if (totalGainLinear != 1.0f)
+            buffer.applyGain (ch, 0, numSamples, totalGainLinear);
 
         // Invert: negate all samples (polarity flip)
         const bool inverted = apvts.getRawParameterValue (ParamID::chanInvert (ch))->load() > 0.5f;

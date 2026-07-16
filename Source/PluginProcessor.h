@@ -23,6 +23,12 @@ namespace SA {
     static constexpr float  GAIN_MIN         = -12.0f;
     static constexpr float  GAIN_MAX         = +12.0f;
 
+    // System attenuation limits (dB). Negative-only by design: this control
+    // exists to cap maximum system output for hardware protection, never to
+    // add gain.
+    static constexpr float  SYSTEM_ATTEN_MIN = -30.0f;
+    static constexpr float  SYSTEM_ATTEN_MAX =   0.0f;
+
     // Maximum possible effective delay = system max + alignment max (ms)
     // effective_delay[ch] = system_delay + (align_delay[ch] - min(align_delay))
     // worst case: 30ms + (20ms - (-20ms)) = 70ms
@@ -40,8 +46,9 @@ namespace SA {
 // Parameter ID helpers
 // ─────────────────────────────────────────────────────────────────────────────
 namespace ParamID {
-    static constexpr auto Bypass      = "bypass";
-    static constexpr auto SystemDelay = "system_delay";
+    static constexpr auto Bypass            = "bypass";
+    static constexpr auto SystemDelay       = "system_delay";
+    static constexpr auto SystemAttenuation = "system_attenuation";
 
     // Per-channel IDs are generated at runtime; these are the format strings.
     // e.g. alignDelay(2) → "align_delay_2"
