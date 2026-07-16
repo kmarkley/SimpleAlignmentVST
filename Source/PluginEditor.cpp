@@ -209,6 +209,7 @@ SimpleAlignmentAudioProcessorEditor::SimpleAlignmentAudioProcessorEditor (
 
     // ── Lock toggle ───────────────────────────────────────────────────────────
     lockToggle.setTooltip ("Lock all controls to prevent accidental edits");
+    lockToggle.setToggleState (true, juce::dontSendNotification);
     addAndMakeVisible (lockToggle);
     lockToggle.onClick = [this] { applyLockState(); };
 
@@ -303,6 +304,9 @@ SimpleAlignmentAudioProcessorEditor::SimpleAlignmentAudioProcessorEditor (
 
     // ── Start refresh timer at ~10 fps (normalized displays don't need fast updates) ──
     startTimerHz (10);
+
+    // ── Locked by default: user must explicitly unlock before editing ────────
+    applyLockState();
 }
 
 SimpleAlignmentAudioProcessorEditor::~SimpleAlignmentAudioProcessorEditor()
